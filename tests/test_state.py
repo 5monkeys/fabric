@@ -1,6 +1,6 @@
-from nose.tools import eq_
+from nose.tools import eq_, assert_raises
 
-from fabric.state import _AliasDict
+from fabric.state import _AliasDict, _AttributeDict
 
 
 def test_dict_aliasing():
@@ -50,3 +50,42 @@ def test_dict_alias_expansion():
         aliases={'foo': ['bar', 'nested'], 'nested': ['biz']}
     )
     eq_(ad.expand_aliases(['foo']), ['bar', 'biz'])
+
+
+def test_resolve_variable():
+    """
+    Variable expansion
+    """
+    e = _AttributeDict({
+        'a': {
+            'b': {
+                'c': '$(g.h)bar',
+                'd': [
+                    [
+                        {
+                            'e': 'foo$(i)!'
+                        }
+                    ]
+                ],
+                'f': '$(j)'
+            },
+
+        },
+        'g': {
+            'h': 'foo'
+        },
+        'i': 'bar',
+        'j': 'ham'
+    })
+
+    assert_raises(KeyError, e.__getitem__, 'x.y')  # KeyError
+    eq_(e.resolve('a.b.c.x', default='def'), 'def')  # Default
+    eq_(e.resolve('a.b.c'), 'foobar')  # Variable
+    eq_(e.resolve('a.b.c.f'), 'ham')  # Parent fallback
+    eq_(e.resolve('c', prefix='a.b'), 'foobar')  # Prefix
+    eq_(e.resolve('a.b'), {  # Resolved dict/list
+        'c': 'foobar',
+        'd': [[{'e': 'foobar!'}]],
+        'f': 'ham'
+    })
+    assert_raises(KeyError, e.__getitem__, 'x.y')

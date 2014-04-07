@@ -3,6 +3,7 @@ Internal subroutines for e.g. aborting execution with an error message,
 or performing indenting on multiline output.
 """
 import os
+import re
 import sys
 import textwrap
 from traceback import format_exc
@@ -185,6 +186,8 @@ class _AttributeDict(dict):
         'bar'
 
     """
+    variable_pattern = re.compile('\$\((.+?)\)')
+
     def __getattr__(self, key):
         try:
             return self[key]
@@ -200,6 +203,64 @@ class _AttributeDict(dict):
             value = self.get(name)
             if value:
                 return value
+
+    def resolve(self, path=None, prefix=None, default=None):
+        """
+        Path lookup helper with deep dot notation, parent fallback and variable expansion
+        """
+        try:
+            # Prefix path; a.b + c -> a.b.c
+            if prefix:
+                if path:
+                    path = '.'.join((prefix, path))
+                else:
+                    path = prefix
+
+            # Crawl path; a.b.c.edge -> env[a][b][c][edge]
+            nodes = path.split('.')
+
+            def crawl(container, key):
+                if isinstance(container, dict):
+                    return container[key]
+                elif isinstance(container, list):
+                    return container[int(key)]
+                else:
+                    raise KeyError(key)
+
+            value = reduce(crawl, nodes, self)
+
+        except KeyError:
+            if len(nodes) == 1:
+                # Only non-existing edge left; return default
+                value = default
+            else:
+                # Try edge parent, a.b.c.edge -> a.b.edge
+                nodes = tuple(nodes)
+                path = '.'.join(nodes[:-2] + nodes[-1:])
+                value = self.resolve(path, default=default)
+
+        if isinstance(value, basestring):
+            # Value is string, expand internal variables if found; $(...)
+            if value:
+                resolve_var = lambda v, m: v.replace(m.group(0), self.resolve(m.group(1), default=default))
+                value = reduce(resolve_var, self.variable_pattern.finditer(value), value)
+
+            if value:
+                value = value.strip()
+
+        elif isinstance(value, dict):
+            # Value is dict, resolve item values to ensure variable expansion
+            for item_key, item_value in value.iteritems():
+                item_path = '.'.join((path, item_key))
+                value[item_key] = self.resolve(item_path)
+
+        elif isinstance(value, list):
+            # Value is list, resolve items to ensure variable expansion
+            for i, list_value in enumerate(value):
+                index_path = '.'.join((path, str(i)))
+                value[i] = self.resolve(index_path)
+
+        return value
 
 
 class _AliasDict(_AttributeDict):
