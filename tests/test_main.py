@@ -694,3 +694,60 @@ class TestFabConfig(FabricTest):
         ok_(fabconf.endswith('.json'), 'fabfile config in correct format')
         settings = load_fabconf(fabconf)
         ok_((settings['foo'] == 'bar'), 'fabfile json config loaded')
+
+
+class TestStates(FabricTest):
+
+    def test_switch_env_with_update(self):
+        """
+        env state should be default after rollback from switched env state
+        """
+        from fabric.state import env, switch_env
+        env.colorize_errors = True
+        env.states['test'] = {
+            'colorize_errors': False,
+            'roledefs': {'foo': ['bar']},
+            'custom': 'value'
+        }
+        def ok_default():
+            ok_(env.state is None)
+            ok_('foo' not in env.roledefs)
+            ok_(env.colorize_errors)
+            ok_('custom' not in env)
+        ok_default()
+        switch_env('test')
+        ok_(env.state == 'test')
+        ok_('foo' in env.roledefs)
+        ok_(not env.colorize_errors)
+        ok_(env.custom == 'value')
+        switch_env()
+        ok_default()
+
+    def test_switch_env_with_merge(self):
+        """
+        env state should be default after rollback from switched env state
+        """
+        from fabric.state import env, switch_env
+        env.colorize_errors = True
+        env.merge_states = True
+        env.roledefs['foo'] = ['bar']
+        env.states['test'] = {
+            'colorize_errors': False,
+            'roledefs': {'biz': ['baz']},
+            'custom': 'value'
+        }
+        def ok_default():
+            ok_(env.state is None)
+            ok_('foo' in env.roledefs)
+            ok_('biz' not in env.roledefs)
+            ok_(env.colorize_errors)
+            ok_('custom' not in env)
+        ok_default()
+        switch_env('test')
+        ok_(env.state == 'test')
+        ok_('foo' in env.roledefs)
+        ok_('biz' in env.roledefs)
+        ok_(not env.colorize_errors)
+        ok_(env.custom == 'value')
+        switch_env()
+        ok_default()

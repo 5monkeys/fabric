@@ -468,6 +468,18 @@ as :ref:`user`'s initial value, but whereas :ref:`user` may be altered by CLI
 arguments, Python code or specific host strings, :ref:`local-user` will always
 contain the same value.
 
+.. _merge-states:
+
+``merge_states``
+----------------
+
+**Default:** ``False``
+
+If ``True``, will merge instead of update shared env when switching state.
+
+.. seealso::
+    :option:`--env <-E>`, :ref:`env.states <states>`
+
 .. _no_agent:
 
 ``no_agent``
@@ -733,6 +745,21 @@ Allows specification of an alternate SSH configuration file path.
 
 .. versionadded:: 1.4
 .. seealso:: :option:`--ssh-config-path`, :ref:`ssh-config`
+
+
+.. _states:
+
+``states``
+----------
+
+**Default:** ``{}``
+
+This dictionary specifies named env states. Allows switching entire env
+with api ``switch_env`` or via CLI argument :option:`--env <-E>`
+
+.. seealso::
+    :option:`--env <-E>`, :ref:`env.merge_states <merge-states>`
+
 
 ``ok_ret_codes``
 ------------------------
